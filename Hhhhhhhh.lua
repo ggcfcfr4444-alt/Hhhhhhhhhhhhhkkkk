@@ -14,7 +14,7 @@
 
 -- ====== حماية بـ Whitelist ======
 local allowedUsers = {
-    "knhfgg66",
+    "kAnhfgg66",
     "Mohammad45130",
     "Hugeudddde",
     "RTFDQ3",
