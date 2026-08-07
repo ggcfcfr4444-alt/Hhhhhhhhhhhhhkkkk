@@ -23,7 +23,7 @@ local allowedUsers = {
     "lzlz152275",
     "Wffeghfr",
     "Mahdi2013756",
-    "OSK7009",
+    "OSAK7009",
   
 }
 
