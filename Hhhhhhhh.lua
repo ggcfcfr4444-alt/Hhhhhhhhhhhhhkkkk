@@ -7,14 +7,14 @@
 -- CARRY SPEED يدوي (زر في الأزرار الجانبية) - WhaleHub Booster
 -- AUTO CARRY SPEED (زر في الإعدادات) - WhaleHub Booster
 -- RAG و SHIELD موجودين فقط في الإعدادات
--- AIMBOT على حرف E في الكيبورد
+-- AIMBOT على حرف E في الكيبورد (مطور بالكامل)
 -- الإعدادات باللون الأسود مع صورة خلفية
 -- جميع السرعات تستخدم WhaleHub Booster (LinearVelocity)
 -- ============================================= --
 
 -- ====== حماية بـ Whitelist ======
 local allowedUsers = {
-    "kAnhfgg66",
+    "knhfgg66",
     "Mohammad45130",
     "Hugeudddde",
     "RTFDQ3",
@@ -28,7 +28,6 @@ local allowedUsers = {
     "dGhyt546y5",
     "FAXWD71",
     "moncefego",
-  
 }
 
 local function checkWhitelist()
@@ -375,196 +374,237 @@ local function toggleLagger()
 end
 
 -- ============================================================
--- AIMBOT
+-- ====== AIMBOT المطور (Funny Hub) ======
 -- ============================================================
-local batAimbotOn = false
-local _aimbotTarget = nil
-local _hittingCooldown = false
-local SWING_CD = 0.35
-local HIT_DIST = 8
-local CHASE_SPEED = 58
-local aimbotConn = nil
+local AUTO_BAT_ENABLED = false
+local AUTO_BAT_SPEED = 58
+local AUTO_BAT_VERT_SPEED = 52
+local AUTO_BAT_DIST = -2.8
+local AUTO_BAT_HEIGHT = 4.75
+local AUTO_BAT_V_OFF = 1
+local AUTO_BAT_TURN_SPEED = 285
+local AUTO_BAT_MAX_TURN_RATE = 40
+local AUTO_SWING_ENABLED = true
+local autoBatConnection = nil
+local autoBatEquipped = false
+local _autoBatTarget = nil
+local _autoBatLastScan = 0
+local batTool = nil
+local unwalkEnabled = false
+local savedAnimate = nil
 
-local BAT_SLAP_LIST = {
-    "Bat", "Slap", "Iron Slap", "Gold Slap", "Diamond Slap",
-    "Emerald Slap", "Ruby Slap", "Dark Matter Slap", "Flame Slap",
-    "Nuclear Slap", "Galaxy Slap", "Glitched Slap"
-}
+local function startUnwalk()
+    if unwalkEnabled then return end
+    unwalkEnabled = true
+    local c = LP.Character
+    if not c then return end
+    local hum = c:FindFirstChildOfClass("Humanoid")
+    if hum then
+        for _, t in ipairs(hum:GetPlayingAnimationTracks()) do
+            t:Stop()
+        end
+    end
+    local anim = c:FindFirstChild("Animate")
+    if anim then
+        savedAnimate = anim:Clone()
+        anim:Destroy()
+    end
+end
+
+local function stopUnwalk()
+    if not unwalkEnabled then return end
+    unwalkEnabled = false
+    local c = LP.Character
+    if c and savedAnimate then
+        savedAnimate.Parent = c
+        savedAnimate.Disabled = false
+        savedAnimate = nil
+    end
+end
+
+local function getCharacter() return LP.Character end
+local function getHumanoid()
+    local char = getCharacter()
+    return char and char:FindFirstChildOfClass("Humanoid")
+end
+local function getRootPart()
+    local char = getCharacter()
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function getAutoBatTarget()
+    local root = getRootPart()
+    if not root then return nil end
+    local now = tick()
+    if now - _autoBatLastScan <= 0.1 and _autoBatTarget and _autoBatTarget.Parent then
+        local hum = _autoBatTarget.Parent:FindFirstChildOfClass("Humanoid")
+        if hum and hum.Health > 0 then
+            return _autoBatTarget
+        end
+    end
+    _autoBatLastScan = now
+    _autoBatTarget = nil
+    local closest, minDist = nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            local tRoot = plr.Character:FindFirstChild("HumanoidRootPart")
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if tRoot and hum and hum.Health > 0 then
+                local dist = (tRoot.Position - root.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = tRoot
+                end
+            end
+        end
+    end
+    _autoBatTarget = closest
+    return _autoBatTarget
+end
 
 local function findBat()
-    local char = LP.Character
+    local char = getCharacter()
     if not char then return nil end
-    for _, name in ipairs(BAT_SLAP_LIST) do
-        local t = char:FindFirstChild(name)
-        if t and t:IsA("Tool") then return t end
+    for _, tool in ipairs(char:GetChildren()) do
+        if tool:IsA("Tool") then
+            local name = tool.Name:lower()
+            if name:find("bat") or name:find("slap") then
+                return tool
+            end
+        end
     end
-    local bp = LP:FindFirstChildOfClass("Backpack")
+    local bp = LP:FindFirstChildOfClass("Backpack") or LP:FindFirstChild("Backpack")
     if bp then
-        for _, name in ipairs(BAT_SLAP_LIST) do
-            local t = bp:FindFirstChild(name)
-            if t and t:IsA("Tool") then
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then pcall(function() hum:EquipTool(t) end) end
-                return t
+        for _, tool in ipairs(bp:GetChildren()) do
+            if tool:IsA("Tool") then
+                local name = tool.Name:lower()
+                if name:find("bat") or name:find("slap") then
+                    return tool
+                end
             end
         end
     end
     return nil
 end
 
-local function trySwing()
-    if _hittingCooldown then return end
-    _hittingCooldown = true
-    pcall(function()
-        local char = LP.Character
-        if char then
-            local bat = findBat()
-            if bat then
-                if bat.Parent ~= char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then pcall(function() hum:EquipTool(bat) end) end
-                end
-                pcall(function() bat:Activate() end)
-                local ev = bat:FindFirstChildWhichIsA("RemoteEvent")
-                if ev then pcall(function() ev:FireServer() end) end
-                local rf = bat:FindFirstChildWhichIsA("RemoteFunction")
-                if rf then pcall(function() rf:InvokeServer() end) end
-            end
+local function ensureBatEquipped()
+    local char = getCharacter()
+    local hum = getHumanoid()
+    if not char or not hum then return end
+    if not char:FindFirstChildOfClass("Tool") then
+        local bat = findBat()
+        if bat then
+            pcall(function() hum:EquipTool(bat) end)
+            batTool = bat
         end
-    end)
-    task.delay(SWING_CD, function() _hittingCooldown = false end)
+    else
+        batTool = char:FindFirstChildOfClass("Tool")
+    end
 end
 
-local function getClosestPlayerAimbot()
-    local char = LP.Character
-    if not char then return nil, math.huge end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil, math.huge end
-    local closest, dist = nil, math.huge
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP and p.Character then
-            local tr = p.Character:FindFirstChild("HumanoidRootPart")
-            local ph = p.Character:FindFirstChildOfClass("Humanoid")
-            if tr and ph and ph.Health > 0 then
-                local d = (root.Position - tr.Position).Magnitude
-                if d < dist then dist = d; closest = p end
-            end
-        end
-    end
-    return closest, dist
-end
-
-local function startBatAimbot()
-    if aimbotConn then return end
-    if autoLeftEnabled then
-        autoLeftEnabled = false
-        stopAutoLeft()
-        if buttonRefs and buttonRefs.left then
-            buttonRefs.left.setActive(false)
-            buttonRefs.left.btn.Text = "AUTO\nLEFT"
-        end
-    end
-    if autoRightEnabled then
-        autoRightEnabled = false
-        stopAutoRight()
-        if buttonRefs and buttonRefs.right then
-            buttonRefs.right.setActive(false)
-            buttonRefs.right.btn.Text = "AUTO\nRIGHT"
-        end
-    end
-    
-    local hum0 = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-    if hum0 then hum0.AutoRotate = false end
-    
-    aimbotConn = RunService.RenderStepped:Connect(function()
-        if not batAimbotOn then return end
-        local char = LP.Character
-        if not char then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        
-        if not char:FindFirstChildOfClass("Tool") then
-            local bat = findBat()
-            if bat then pcall(function() hum:EquipTool(bat) end) end
-        end
-        
-        local targetPlr, targetDist = getClosestPlayerAimbot()
-        if not targetPlr or not targetPlr.Character then return end
-        local target = targetPlr.Character:FindFirstChild("HumanoidRootPart")
-        if not target then return end
-        
-        _aimbotTarget = target
-        
-        local targetVel = target.AssemblyLinearVelocity
-        local myPos = root.Position
-        local targetPos = target.Position
-        
-        local predictPos = targetPos + targetVel * 0.14
-        predictPos = predictPos + target.CFrame.LookVector * 0.3
-        
-        local direction = predictPos - myPos
-        local flatDir = Vector3.new(direction.X, 0, direction.Z).Unit
-        
-        local desiredHeight = targetPos.Y + 3.7
-        local yVel = (desiredHeight - myPos.Y) * 19.5 + targetVel.Y * 0.8
-        if hum.FloorMaterial ~= Enum.Material.Air then yVel = math.max(yVel, 13) end
-        yVel = math.clamp(yVel, -70, 110)
-        
-        local desiredVel = Vector3.new(flatDir.X * CHASE_SPEED, yVel, flatDir.Z * CHASE_SPEED)
-        root.AssemblyLinearVelocity = root.AssemblyLinearVelocity:Lerp(desiredVel, 0.8)
-        
-        local speed3 = targetVel.Magnitude
-        local predictTime = math.clamp(speed3 / 150, 0.05, 0.2)
-        local predictedPos = targetPos + targetVel * predictTime
-        local toPredict = predictedPos - myPos
-        
-        if toPredict.Magnitude > 0.1 then
-            local goalCF = CFrame.lookAt(myPos, predictedPos)
-            local diffCF = root.CFrame:Inverse() * goalCF
-            local rx, ry, rz = diffCF:ToEulerAnglesXYZ()
-            rx = math.clamp(rx, -2.5, 2.5)
-            ry = math.clamp(ry, -2.5, 2.5)
-            rz = math.clamp(rz, -2.5, 2.5)
-            root.AssemblyAngularVelocity = root.CFrame:VectorToWorldSpace(Vector3.new(rx * 42, ry * 42, rz * 42))
-        end
-        
-        if targetDist <= HIT_DIST then trySwing() end
-    end)
-    
-    print("[HUSSIN] 🎯 AIMBOT: ON")
-end
-
-local function stopBatAimbot()
-    if aimbotConn then
-        pcall(function() aimbotConn:Disconnect() end)
-        aimbotConn = nil
-    end
-    _aimbotTarget = nil
-    local char = LP.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
+local function resetAutoBatMotion()
+    local root = getRootPart()
+    local hum = getHumanoid()
     if root then
-        root.AssemblyLinearVelocity = Vector3.zero
+        root.AssemblyLinearVelocity = root.AssemblyLinearVelocity * 0.3
         root.AssemblyAngularVelocity = Vector3.zero
     end
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
     if hum then hum.AutoRotate = true end
-    _hittingCooldown = false
-    print("[HUSSIN] 🎯 AIMBOT: OFF")
+end
+
+local function startAutoBat()
+    if autoBatConnection then return end
+    autoBatConnection = RunService.Heartbeat:Connect(function()
+        if not AUTO_BAT_ENABLED then return end
+        local char = getCharacter()
+        local hum = getHumanoid()
+        local root = getRootPart()
+        if not char or not hum or not root then return end
+        if not autoBatEquipped then
+            autoBatEquipped = true
+            ensureBatEquipped()
+        end
+        local target = getAutoBatTarget()
+        if target then
+            local targetVel = target.AssemblyLinearVelocity
+            local aimTargetPos = target.Position + (targetVel * math.clamp(targetVel.Magnitude / 130, 0.05, 0.15)) + Vector3.new(0, AUTO_BAT_V_OFF, 0)
+            hum.AutoRotate = false
+            local look = aimTargetPos - root.Position
+            local flatLook = Vector3.new(look.X, 0, look.Z)
+            if look.Magnitude > 0.01 and flatLook.Magnitude > 0.01 then
+                local targetYaw = math.deg(math.atan2(-flatLook.X, -flatLook.Z))
+                local yawDelta = (targetYaw - root.Orientation.Y + 180) % 360 - 180
+                local targetPitch = math.deg(math.atan2(look.Y, flatLook.Magnitude))
+                local pitchDelta = (targetPitch - root.Orientation.X + 180) % 360 - 180
+                local yawRate = math.clamp(math.rad(yawDelta) * AUTO_BAT_TURN_SPEED, -AUTO_BAT_MAX_TURN_RATE, AUTO_BAT_MAX_TURN_RATE)
+                local pitchRate = math.clamp(math.rad(pitchDelta) * AUTO_BAT_TURN_SPEED, -AUTO_BAT_MAX_TURN_RATE, AUTO_BAT_MAX_TURN_RATE)
+                local yawRad = math.rad(root.Orientation.Y)
+                local rightAxis = Vector3.new(math.cos(yawRad), 0, -math.sin(yawRad))
+                root.AssemblyAngularVelocity = Vector3.new(0, yawRate, 0) + (rightAxis * pitchRate)
+            else
+                root.AssemblyAngularVelocity = Vector3.zero
+            end
+            local dir = look.Magnitude > 0.01 and look.Unit or Vector3.zero
+            local standPos = aimTargetPos - (dir * AUTO_BAT_DIST) + Vector3.new(0, AUTO_BAT_HEIGHT, 0)
+            local moveDir = standPos - root.Position
+            local hDir = Vector3.new(moveDir.X, 0, moveDir.Z)
+            local hVel = hDir.Magnitude > 0.1 and hDir.Unit * AUTO_BAT_SPEED or Vector3.zero
+            local vVel = math.abs(moveDir.Y) > 0.1 and Vector3.new(0, math.sign(moveDir.Y) * AUTO_BAT_VERT_SPEED, 0) or Vector3.new(0, -2, 0)
+            root.AssemblyLinearVelocity = hVel + vVel
+            if hDir.Magnitude > 0.5 then
+                hum:Move(hDir.Unit, false)
+            end
+            if AUTO_SWING_ENABLED and (root.Position - target.Position).Magnitude < 6 then
+                local bat = findBat() or batTool
+                if bat and bat:IsA("Tool") then
+                    pcall(function() bat:Activate() end)
+                end
+            end
+        else
+            hum.AutoRotate = true
+            root.AssemblyAngularVelocity = Vector3.zero
+            root.AssemblyLinearVelocity = Vector3.zero
+        end
+    end)
+end
+
+local function stopAutoBat()
+    if autoBatConnection then
+        autoBatConnection:Disconnect()
+        autoBatConnection = nil
+    end
+    resetAutoBatMotion()
+    autoBatEquipped = false
+end
+
+local function setAutoBatState(enabled)
+    AUTO_BAT_ENABLED = enabled
+    if enabled then
+        startUnwalk()
+        startAutoBat()
+        if buttonRefs and buttonRefs.aimbot then
+            buttonRefs.aimbot.setActive(true)
+            buttonRefs.aimbot.btn.Text = "ON"
+        end
+    else
+        stopUnwalk()
+        stopAutoBat()
+        if buttonRefs and buttonRefs.aimbot then
+            buttonRefs.aimbot.setActive(false)
+            buttonRefs.aimbot.btn.Text = "AIMBOT"
+        end
+    end
 end
 
 local function toggleBatAimbot()
-    batAimbotOn = not batAimbotOn
-    if batAimbotOn then
-        startBatAimbot()
-    else
-        stopBatAimbot()
-    end
-    return batAimbotOn
+    local newState = not AUTO_BAT_ENABLED
+    setAutoBatState(newState)
+    return AUTO_BAT_ENABLED
 end
 
--- ====== BAT MOD (TP MODE) ======
+-- ============================================================
+-- BAT MOD (TP MODE) - حرف Q
+-- ============================================================
 local tpBatToggled = false
 local tpBatHittingCooldown = false
 local tpBatHRP = nil
@@ -973,7 +1013,8 @@ local function removeAccDo()
 end
 
 local function removeAccStart()
-    if removeAccEnabled then return end    removeAccEnabled = true
+    if removeAccEnabled then return end
+    removeAccEnabled = true
     removeAccDo()
     removeAccConn = LP.CharacterAdded:Connect(function()
         task.wait(0.5)
@@ -1144,7 +1185,7 @@ local function saveConfig()
         STEAL_DURATION = STEAL_DURATION,
         infJumpOn = infJumpOn,
         antiRagOn = antiRagOn,
-        batAimbotOn = batAimbotOn,
+        batAimbotOn = AUTO_BAT_ENABLED,
         tpBatToggled = tpBatToggled,
         medusaEnabled = medusaEnabled,
         laggerEnabled = laggerEnabled,
@@ -1189,7 +1230,7 @@ local function loadConfig()
         if type(data.STEAL_DURATION) == "number" then STEAL_DURATION = data.STEAL_DURATION end
         if type(data.infJumpOn) == "boolean" then infJumpOn = data.infJumpOn end
         if type(data.antiRagOn) == "boolean" then antiRagOn = data.antiRagOn end
-        if type(data.batAimbotOn) == "boolean" then batAimbotOn = data.batAimbotOn end
+        if type(data.batAimbotOn) == "boolean" then AUTO_BAT_ENABLED = data.batAimbotOn end
         if type(data.tpBatToggled) == "boolean" then tpBatToggled = data.tpBatToggled end
         if type(data.medusaEnabled) == "boolean" then medusaEnabled = data.medusaEnabled end
         if type(data.laggerEnabled) == "boolean" then laggerEnabled = data.laggerEnabled end
@@ -1822,6 +1863,11 @@ local function onCharacterAdded(newChar)
         task.wait(0.3)
         applyBoost()
     end
+    if AUTO_BAT_ENABLED then
+        task.wait(0.5)
+        startUnwalk()
+        ensureBatEquipped()
+    end
 end
 
 if LP.Character then onCharacterAdded(LP.Character) end
@@ -2408,7 +2454,7 @@ local function CreateMainGUI()
             setActive(true)
             btn.Text = "ON"
         end
-        if data.id == "aimbot" and batAimbotOn then
+        if data.id == "aimbot" and AUTO_BAT_ENABLED then
             setActive(true)
             btn.Text = "ON"
         end
@@ -2883,9 +2929,8 @@ function CreateSettingsGUI()
     local CombatPage = CreatePage("COMBAT")
     
     local BatSection = CreateSection("AUTO BAT", CombatPage)
-    CreateToggle(BatSection, "Auto Bat (AIMBOT)", batAimbotOn, function(on)
-        batAimbotOn = on
-        if on then startBatAimbot() else stopBatAimbot() end
+    CreateToggle(BatSection, "Auto Bat (AIMBOT)", AUTO_BAT_ENABLED, function(on)
+        setAutoBatState(on)
         autoSave()
     end)
 
@@ -3374,6 +3419,7 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     if UIS:GetFocusedTextBox() then return end
     
+    -- ====== حرف E = AIMBOT المطور ======
     if input.KeyCode == Enum.KeyCode.E then
         local newState = toggleBatAimbot()
         if buttonRefs and buttonRefs.aimbot then
@@ -3411,9 +3457,10 @@ local function setupChar(char)
             startSpeed()
         end
     end
-    if batAimbotOn then
+    if AUTO_BAT_ENABLED then
         task.wait(0.3)
-        startBatAimbot()
+        startUnwalk()
+        ensureBatEquipped()
     end
     if tpBatToggled then
         task.wait(0.3)
@@ -3451,9 +3498,10 @@ task.spawn(function()
 end)
 
 -- تطبيق الإعدادات المحفوظة
-if batAimbotOn then
+if AUTO_BAT_ENABLED then
     task.wait(0.5)
-    startBatAimbot()
+    startUnwalk()
+    startAutoBat()
 end
 if tpBatToggled then
     task.wait(0.5)
@@ -3487,7 +3535,9 @@ end
 if activeSky then applySky(activeSky) end
 if autoTPEnabled then startAutoTP() end
 
-print("[HUSSIN V1] ✅ تم التحميل - جميع السرعات تستخدم WhaleHub Booster")
+print("[HUSSIN V1] ✅ تم التحميل")
+print("[HUSSIN V1] ⌨️ E = AIMBOT المطور")
+print("[HUSSIN V1] ✅ جميع السرعات تستخدم WhaleHub Booster")
 print("[HUSSIN V1] ✅ CARRY SPEED + AUTO CARRY SPEED + NORMAL SPEED = WhaleHub")
 print("[HUSSIN V1] ✅ LAGGER فقط يستخدم النظام القديم")
 print("انضم إلي قناة التحدثات: https://whatsapp.com/channel/0029VapogxN5kg6wlEflyZ3M")
