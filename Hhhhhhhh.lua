@@ -28,6 +28,7 @@ local allowedUsers = {
     "dGhyt546y5",
     "FAXWD71",
     "moncefego",
+    "hshfjfjdhf",
 }
 
 local function checkWhitelist()
