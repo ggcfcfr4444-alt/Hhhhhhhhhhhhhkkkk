@@ -41,6 +41,9 @@ local allowedUsers = {
     "gnvg924",
     "LRTY",
     "ghngrortonrt",
+    "so_q9",
+    "si_9op",
+    
     
     
     
