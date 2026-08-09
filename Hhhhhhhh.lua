@@ -40,6 +40,7 @@ local allowedUsers = {
     "otyby5115",
     "Jdidmesk",
     "gnvg924",
+    "LRTY",
     
     
     
