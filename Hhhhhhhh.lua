@@ -35,7 +35,7 @@ local allowedUsers = {
     "hsjdndmdjs",
     "Allso30pesa",
     "Snssjjxqe",
-    "Makrona778",
+    "makrona778",
     "Husam13460",
     
     
