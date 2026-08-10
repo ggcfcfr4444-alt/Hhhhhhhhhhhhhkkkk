@@ -44,6 +44,7 @@ local allowedUsers = {
     "so_q9",
     "si_9op",
     "RPG_10071",
+    "BOOS_B52R501",
     
     
     
