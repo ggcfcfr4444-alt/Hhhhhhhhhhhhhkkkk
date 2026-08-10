@@ -45,6 +45,7 @@ local allowedUsers = {
     "si_9op",
     "RPG_10071",
     "BOOS_B52R501",
+    "Nergs559",
     
     
     
