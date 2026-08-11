@@ -46,7 +46,7 @@ local allowedUsers = {
     "RPG_10071",
     "BOOS_B52R501",
     "Nergs559",
-    "amin376380",
+    "aminalnjja12",
     
     
     
